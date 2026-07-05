@@ -5,6 +5,115 @@ import jwt from "jsonwebtoken";
 
 const saltRounds = parseInt(process.env.SALT_ROUNDS, 10);
 /**
+ * @route   PUT /api/auth/profile/update
+ * @desc    Update editable user profile details
+ * @access  Private
+ */
+const updateProfile = async (req, res) => {
+  console.log("Update Profile Controller Invoked");
+  const { user_id, name, phone, blood_group } = req.body;
+
+  if (!user_id || !name || !phone || !blood_group) {
+    return res.status(400).json({ error: "All profile fields are required." });
+  }
+
+  try {
+    // Check if the phone number is already taken by someone else
+    const phoneCheck = await db.query(
+      "SELECT user_id FROM users WHERE phone = $1 AND user_id != $2",
+      [phone, user_id],
+    );
+    if (phoneCheck.rows.length > 0) {
+      return res.status(400).json({
+        error: "This phone number is already linked to another account.",
+      });
+    }
+
+    const query = `UPDATE users SET name = $1, phone = $2, blood_group = $3 WHERE user_id = $4 
+                   RETURNING user_id, name, phone, blood_group;`;
+    const result = await db.query(query, [name, phone, blood_group, user_id]);
+
+    return res
+      .status(200)
+      .json({ message: "Profile updated successfully!", user: result.rows[0] });
+  } catch (error) {
+    console.error("Update Profile Error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * @route   PUT /api/auth/password/change
+ * @desc    Securely change password inside session
+ * @access  Private
+ */
+const changePassword = async (req, res) => {
+  console.log("Change Password Controller Invoked");
+  const { user_id, current_password, new_password } = req.body;
+
+  if (!user_id || !current_password || !new_password) {
+    return res
+      .status(400)
+      .json({ error: "Current and new passwords are required." });
+  }
+
+  try {
+    const result = await db.query(
+      "SELECT password FROM users WHERE user_id = $1",
+      [user_id],
+    );
+    if (result.rows.length === 0)
+      return res.status(404).json({ error: "User not found." });
+
+    const isMatch = await bcrypt.compare(
+      current_password,
+      result.rows[0].password,
+    );
+    if (!isMatch)
+      return res.status(400).json({ error: "Incorrect current password." });
+
+    const salt = await bcrypt.genSalt(saltRounds);
+    const hashedNewPassword = await bcrypt.hash(new_password, salt);
+
+    await db.query("UPDATE users SET password = $1 WHERE user_id = $2", [
+      hashedNewPassword,
+      user_id,
+    ]);
+    return res.status(200).json({ message: "Password updated successfully!" });
+  } catch (error) {
+    console.error("Change Password Error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+/**
+ * @route   GET /api/auth/me
+ * @desc    Get logged-in user profile details (Used for auto-login)
+ * @access  Private (Will require verification middleware)
+ */
+const getCurrentUser = async (req, res) => {
+  console.log("Get Current User Controller Invoked");
+  // Once the middleware is complete, it will pass the user_id on the req object
+  const userId = req.body.userId;
+
+  if (!userId) {
+    return res.status(400).json({ error: "User ID is required." });
+  }
+
+  try {
+    const result = await db.query(
+      "SELECT user_id, name, phone, blood_group, created_at FROM users WHERE user_id = $1",
+      [userId],
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User profile not found." });
+    }
+    return res.status(200).json(result.rows[0]);
+  } catch (error) {
+    console.error("Get Current User Error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+/**
  * @route   POST /api/auth/login
  * @desc    Authenticate user & return a secure JWT token
  * @access  Public
@@ -27,7 +136,7 @@ const loginUser = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ error: "Invalid login credentials." });
     }
-    const token = jwt.sign({ name: user.name }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ userId: user.user_id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
     return res
@@ -58,7 +167,7 @@ const registerUser = async (req, res) => {
         .status(400)
         .json({ error: "User with this phone number already exists" });
     }
-    const salt = await bcrypt.genSalt(parseInt(process.env.SALT_ROUNDS, 10));
+    const salt = await bcrypt.genSalt(saltRounds);
     const hashedPassword = await bcrypt.hash(password, salt);
     const query = `INSERT INTO users (name, password, phone, blood_group)
       VALUES ($1, $2, $3, $4) RETURNING user_id, name, phone, blood_group`;
@@ -76,4 +185,10 @@ const registerUser = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-export { registerUser, loginUser };
+export {
+  registerUser,
+  loginUser,
+  getCurrentUser,
+  updateProfile,
+  changePassword,
+};

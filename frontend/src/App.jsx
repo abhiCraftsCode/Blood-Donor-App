@@ -9,7 +9,8 @@ import AuthPortal from "./pages/AuthPortal";
 import ProtectedRoute from "./components/ProtectedRoute";
 import EmergencyFeed from "./pages/EmergencyFeed";
 import DonorProfile from "./pages/DonorProfile";
-import RequesterDashboard from "./pages/RequesterDashboard"; // Import the fresh dashboard engine
+import RequesterDashboard from "./pages/RequesterDashboard";
+import FulfillmentScanner from "./pages/FulfillmentScanner"; // Import the fresh verification engine
 
 export default function App() {
   const { user } = useAuth();
@@ -40,12 +41,21 @@ export default function App() {
           }
         />
 
-        {/* 🔐 REQUESTER OPERATION CENTER ENTRY */}
         <Route
           path="/requester"
           element={
             <ProtectedRoute>
               <RequesterDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 🔐 PRIVATE DONOR SCAN ENGINE ENTRY */}
+        <Route
+          path="/verify-scan"
+          element={
+            <ProtectedRoute>
+              <FulfillmentScanner />
             </ProtectedRoute>
           }
         />

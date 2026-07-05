@@ -18,7 +18,8 @@ CREATE TABLE donor_profiles (
     location_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_donation_date DATE,
     last_donation_type blood_component_enum,
-    is_available BOOLEAN DEFAULT TRUE
+    is_available BOOLEAN DEFAULT TRUE,
+    CONSTRAINT unique_user_profile UNIQUE (user_id);
 );
 CREATE TABLE blood_requests (
     request_id SERIAL PRIMARY KEY,

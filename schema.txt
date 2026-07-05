@@ -33,7 +33,7 @@ CREATE TABLE blood_requests (
     secure_token VARCHAR(255) UNIQUE NOT NULL,
     status request_status_enum DEFAULT 'PENDING',
     cancellation_reason TEXT,
-    verification_slip_url VARCHAR(255),
+    verification_slip_url VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_fulfillment_cap CHECK (units_fulfilled <= units_required)
 );
@@ -50,7 +50,7 @@ CREATE TABLE blood_requests_archive (
     secure_token VARCHAR(255) UNIQUE NOT NULL,
     status request_status_enum DEFAULT 'PENDING',
     cancellation_reason TEXT,
-    verification_slip_url VARCHAR(255),
+    verification_slip_url VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_fulfillment_cap CHECK (units_fulfilled <= units_required)
 );

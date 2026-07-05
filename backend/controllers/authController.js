@@ -44,7 +44,7 @@ const loginUser = async (req, res) => {
  * @access  Public
  */
 const registerUser = async (req, res) => {
-  consle.log("Register User Controller Invoked");
+  console.log("Register User Controller Invoked");
   const { name, password, phone, blood_group } = req.body;
   if (!name || !password || !phone || !blood_group) {
     return res.status(400).json({ error: "All fields are required" });
@@ -58,7 +58,7 @@ const registerUser = async (req, res) => {
         .status(400)
         .json({ error: "User with this phone number already exists" });
     }
-    const salt = await bcrypt.genSalt(saltRounds);
+    const salt = await bcrypt.genSalt(parseInt(process.env.SALT_ROUNDS, 10));
     const hashedPassword = await bcrypt.hash(password, salt);
     const query = `INSERT INTO users (name, password, phone, blood_group)
       VALUES ($1, $2, $3, $4) RETURNING user_id, name, phone, blood_group`;

@@ -12,60 +12,66 @@ import EmergencyFeed from "./pages/EmergencyFeed";
 import DonorProfile from "./pages/DonorProfile";
 import RequesterDashboard from "./pages/RequesterDashboard";
 import FulfillmentScanner from "./pages/FulfillmentScanner"; // Import the fresh verification engine
+import GlobalNav from "./components/GlobalNav";
 
 export default function App() {
   const { user } = useAuth();
 
   return (
     <Router>
-      <Routes>
-        <Route
-          path="/auth"
-          element={user ? <Navigate to="/dashboard" replace /> : <AuthPortal />}
-        />
+      <GlobalNav />
+      <div className="sm:pt-14 pb-20 sm:pb-0">
+        <Routes>
+          <Route
+            path="/auth"
+            element={
+              user ? <Navigate to="/dashboard" replace /> : <AuthPortal />
+            }
+          />
 
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <EmergencyFeed />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <EmergencyFeed />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <DonorProfile />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <DonorProfile />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/requester"
-          element={
-            <ProtectedRoute>
-              <RequesterDashboard />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/requester"
+            element={
+              <ProtectedRoute>
+                <RequesterDashboard />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* 🔐 PRIVATE DONOR SCAN ENGINE ENTRY */}
-        <Route
-          path="/verify-scan"
-          element={
-            <ProtectedRoute>
-              <FulfillmentScanner />
-            </ProtectedRoute>
-          }
-        />
+          {/* 🔐 PRIVATE DONOR SCAN ENGINE ENTRY */}
+          <Route
+            path="/verify-scan"
+            element={
+              <ProtectedRoute>
+                <FulfillmentScanner />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="*"
-          element={<Navigate to={user ? "/dashboard" : "/auth"} replace />}
-        />
-      </Routes>
+          <Route
+            path="*"
+            element={<Navigate to={user ? "/dashboard" : "/auth"} replace />}
+          />
+        </Routes>
+      </div>
     </Router>
   );
 }

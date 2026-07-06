@@ -67,9 +67,9 @@ export const AuthProvider = ({ children }) => {
   /**
    * Session Login Pipeline
    */
-  const login = async (email, password) => {
+  const login = async (phone, password) => {
     try {
-      const response = await API.post("/auth/login", { email, password });
+      const response = await API.post("/auth/login", { phone, password });
       const userData = response.data.user; // Adjust based on your explicit login controller structure
 
       setUser(userData);

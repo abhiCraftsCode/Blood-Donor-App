@@ -13,7 +13,13 @@ const donorService = {
     return response.data;
   },
   searchDonors: async (filters) => {
-    const response = await API.get("/donor/search", { data: filters });
+    const response = await API.post("/donor/search", { ...filters });
+    console.log("Search Donors Response:", response.data);
+    return response.data;
+  },
+  searchRequests: async (filters) => {
+    const response = await API.post("/request/nearby", filters);
+    console.log("Search Nearby Requests:", response.data);
     return response.data;
   },
 };

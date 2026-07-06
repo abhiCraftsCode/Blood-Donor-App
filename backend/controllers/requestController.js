@@ -2,17 +2,17 @@ import db from "../config/db.js";
 import crypto from "crypto";
 
 /**
- * @route   GET /api/request/nearby
+ * @route   POST /api/request/nearby
  * @desc    Get nearby blood requests based on latitude and longitude
  * @access  Public temporary
  **/
 const getNearbyRequests = async (req, res) => {
   console.log("Get Nearby Requests Controller Invoked");
-  const { latitude, longitude } = req.query;
+  const { blood_group, latitude, longitude, radius_km } = req.body;
 
-  if (!latitude || !longitude) {
+  if (!latitude || !longitude || !blood_group || !radius_km) {
     return res.status(400).json({
-      error: "Latitude and longitude are required for physical sorting.",
+      error: "Blood group, coordinates, and search radius are required.",
     });
   }
 
@@ -23,12 +23,19 @@ const getNearbyRequests = async (req, res) => {
         units_required, units_fulfilled, status, created_at,
         ST_X(hospital_location::geometry) as longitude,
         ST_Y(hospital_location::geometry) as latitude,
-        (ST_Distance(hospital_location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) / 1000) AS distance_km
+        (ST_Distance(hospital_location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geometry) / 1000) AS distance_km
       FROM blood_requests
-      WHERE status = 'PENDING'
+      WHERE status = 'PENDING' 
+        AND blood_group = $3
+        AND ST_DWithin(hospital_location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geometry, $4 * 1000)
       ORDER BY distance_km ASC;
     `;
-    const result = await db.query(query, [longitude, latitude]);
+    const result = await db.query(query, [
+      longitude,
+      latitude,
+      blood_group,
+      radius_km,
+    ]);
     return res.status(200).json(result.rows);
   } catch (error) {
     console.error("Get Nearby Requests Error:", error);

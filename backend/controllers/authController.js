@@ -139,9 +139,11 @@ const loginUser = async (req, res) => {
     const token = jwt.sign({ userId: user.user_id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
-    return res
-      .status(200)
-      .json({ message: "Login successful", token: `Bearer ${token}` });
+    return res.status(200).json({
+      message: "Login successful",
+      token: `Bearer ${token}`,
+      user: user,
+    });
   } catch (error) {
     console.error("Login Controller Error:", error);
     return res.status(500).json({ error: "Internal server error" });

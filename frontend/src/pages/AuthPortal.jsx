@@ -36,7 +36,7 @@ export default function AuthPortal() {
 
     if (isLoginView) {
       // Execute login sequence using deconstructed context hook
-      const result = await login(formData.email, formData.password);
+      const result = await login(formData.phone, formData.password);
       if (!result.success) {
         setError(result.message);
         setLoading(false);
@@ -94,45 +94,44 @@ export default function AuthPortal() {
             </div>
           )}
 
-          {/* SHARED FIELD: Email Address */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-              Email Address
-            </label>
-            <input
-              type="email"
-              name="email"
-              required
-              value={formData.email}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 placeholder-slate-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 text-sm"
-              placeholder="name@domain.com"
-            />
-          </div>
-
-          {/* REGISTRATION ONLY: Contact Number */}
+          {/* REGISTRATION ONLY: Email Address */}
           {!isLoginView && (
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                Phone Number
+                Email Address
               </label>
               <input
-                type="tel"
-                name="phone"
+                type="email"
+                name="email"
                 required
-                value={formData.phone}
+                value={formData.email}
                 onChange={handleInputChange}
                 className="mt-1 block w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 placeholder-slate-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 text-sm"
-                placeholder="e.g., +919999999999"
+                placeholder="name@domain.com"
               />
             </div>
           )}
+          {/*SHARED FIELD: Contact Number */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+              Phone Number
+            </label>
+            <input
+              type="tel"
+              name="phone"
+              required
+              value={formData.phone}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 placeholder-slate-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 text-sm"
+              placeholder="e.g., +919999999999"
+            />
+          </div>
 
           {/* REGISTRATION ONLY: Blood Type Dropdown Selector */}
           {!isLoginView && (
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                Blood Group Matrix
+                Blood Group
               </label>
               <select
                 name="blood_group"
@@ -176,8 +175,8 @@ export default function AuthPortal() {
             {loading
               ? "Processing Protocol..."
               : isLoginView
-                ? "Authenticate Secure Access"
-                : "Register Profile Engine"}
+                ? "Login"
+                : "Register"}
           </button>
         </form>
 
@@ -192,7 +191,7 @@ export default function AuthPortal() {
           >
             {isLoginView
               ? "Don't have an account? Create one here"
-              : "Already verified? Switch to Login"}
+              : "Already have an account? Switch to Login"}
           </button>
         </div>
       </div>

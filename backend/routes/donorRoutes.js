@@ -9,6 +9,6 @@ const router = express.Router();
 
 router.put("/toggle-availability/:user_id", toggleAvailability);
 router.patch("/location-sync", updateLiveLocation); // Triggered automatically when frontend fires a successful login/register
-router.get("/search", findNearbyDonors);
+router.post("/search", findNearbyDonors);
 
 export default router;

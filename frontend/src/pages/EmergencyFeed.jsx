@@ -25,13 +25,13 @@ export default function EmergencyFeed() {
         const { latitude, longitude } = position.coords;
         try {
           // Packs search parameters inside the body object payload for req.body compliance
-          const data = await donorService.searchDonors({
+          const data = await donorService.searchRequests({
             blood_group: user?.blood_group || "O+",
-            latitude,
-            longitude,
+            latitude: latitude,
+            longitude: longitude,
             radius_km: parseFloat(radius),
           });
-          setRequests(data.requests || []);
+          setRequests(data || []);
         } catch (err) {
           setError("Failed to pull localized emergency streams.");
         } finally {

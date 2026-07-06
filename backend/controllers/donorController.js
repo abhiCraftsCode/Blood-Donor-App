@@ -75,7 +75,7 @@ export const updateLiveLocation = async (req, res) => {
 };
 
 // 3. SEARCH NEARBY ELIGIBLE DONORS (Joining Users + Donor Profiles)
-// GET /api/donor/search
+// POST /api/donor/search
 export const findNearbyDonors = async (req, res) => {
   console.log("Find Nearby Donors Multi-Table Search Invoked");
   // Expected via query parameters: ?blood_group=B%2B&latitude=25.5941&longitude=85.0878&radius_km=15

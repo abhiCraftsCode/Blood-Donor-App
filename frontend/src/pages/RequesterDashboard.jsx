@@ -15,6 +15,8 @@ export default function RequesterDashboard() {
     patient_name: "",
     hospital_name: "",
     blood_group: "A+",
+    required_component: "Whole Blood", // Default to whole blood for simplicity
+    verification_slip_url: "www.example.com", // Placeholder for future file upload integration
     units_required: 1,
     latitude: 25.6112, // Default fallback coordinates to standard city center structures
     longitude: 85.1414,
@@ -33,12 +35,12 @@ export default function RequesterDashboard() {
     try {
       // Automatically injects the currently logged-in user as the master requester anchor
       const payload = {
-        requester_id: user.user_id,
+        user_id: user.user_id,
         ...formData,
         units_required: parseInt(formData.units_required, 10),
       };
 
-      const response = await API.post("/requests/create", payload);
+      const response = await API.post("/request/create", payload);
 
       // Assumes your backend controller responds with the fresh request object containing the [secure_token]
       setActiveRequest(response.data.request);
@@ -64,9 +66,11 @@ export default function RequesterDashboard() {
       return;
 
     try {
-      await API.put(`/requests/cancel`, {
-        request_id: activeRequest.request_id,
-      });
+      await API.patch(
+        `/request/cancel/${activeRequest.request_id}`,
+        { cancellation_reason: "none" },
+        //{ params: { request_id: activeRequest.request_id } }, this is for req.query calls
+      );
       setActiveRequest(null);
     } catch (err) {
       console.error("Failed to cancel request parameters:", err);

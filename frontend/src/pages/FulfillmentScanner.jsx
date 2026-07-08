@@ -37,9 +37,8 @@ export default function FulfillmentScanner() {
       // 3. Fire Fulfillment Transaction Protocol directly to Express backend
       setVerificationStatus({ loading: true, success: false, error: "" });
       try {
-        await API.post("/requests/verify", {
+        await API.post("/request/verify", {
           secure_token: decodedText,
-          donor_id: user.user_id,
         });
 
         setVerificationStatus({ loading: false, success: true, error: "" });

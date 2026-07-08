@@ -1,0 +1,143 @@
+Here is the comprehensive product and system design documentation for your project. You can copy this directly into a `README.md` file in your project root or use it as a guide to prepare your project synopsis for campus placements.
+
+---
+
+# System Design Document: On-Demand Emergency Blood Matching Platform
+
+**Target Stack:** PERN (PostgreSQL, Express.js, React, Node.js) with PostGIS Spatial Extension
+
+## 1. Executive Summary & Problem Statement
+
+In modern, dense urban environments, the shift toward nuclear families and decreased neighborly interaction has fractured traditional local support systems. When a medical emergency arises requiring an urgent blood transfusion, families often resort to broadcasting requests on social media platforms (WhatsApp, Instagram). This method is highly inefficient, limited in reach, prone to notification fatigue, and lacks real-time location intelligence.
+
+This platform introduces an **on-demand, location-aware broadcast engine** (similar to ride-hailing architectures like Uber) that connects patients directly with nearby eligible donors and hospital inventories during critical medical emergencies.
+
+---
+
+## 2. Real-World Architectural Constraints (The Placement Edge)
+
+To make this platform production-ready and resilient, the architecture enforces four major real-world constraints:
+
+* **Blood Component Differentiation:** The system distinguishes between *Whole Blood*, *Platelets*, and *Plasma*. Since clinical deferral windows vary radically (e.g., 90 days for whole blood vs. 15 days for platelets in India), the matching algorithm dynamic calculates eligibility based on the specific component requested.
+* **The Ghost Donor Problem (Lazy Update Strategy):** Because web architectures lack persistent background GPS tracking, the system uses an *Active Check-In* strategy via the HTML5 Geolocation API. Location coordinates are silently updated on user interaction, and the matching engine automatically filters out stale records older than 30 days.
+* **Two-Phase Completion Protocol (OTP Handshake):** To prevent fraud or data corruption, a ticket is not marked as complete when a donor clicks "Accept." Instead, upon physical arrival and successful donation at the medical center, the requester generates a secure, single-use One-Time Password (OTP) that the donor must enter to commit the transaction.
+* **Hybrid P2P & B2P Supply Network:** The platform broadcasts emergency alerts simultaneously to individual voluntary citizens and registered regional blood bank inventories to secure rare groups swiftly without exhausting the civic donor pool.
+
+---
+
+## 3. Database Schema Blueprint (PostgreSQL + PostGIS)
+
+The relational engine utilizes strict schema typing via SQL ENUMs, foreign keys to enforce relational integrity, and spatial indexing to minimize geospatial query latency.
+
+```sql
+-- Enable Spatial Engine
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- Strict Domain Enums
+CREATE TYPE blood_group_enum AS ENUM ('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-');
+CREATE TYPE component_enum AS ENUM ('WHOLE_BLOOD', 'PLATELETS', 'PLASMA');
+CREATE TYPE ticket_status_enum AS ENUM ('PENDING', 'PARTIALLY_FULFILLED', 'FULFILLED', 'CANCELLED');
+CREATE TYPE ping_status_enum AS ENUM ('NOTIFIED', 'ACCEPTED', 'DECLINED', 'EXPIRED');
+
+-- 1. Identity & Profile Layer
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(15) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    blood_group blood_group_enum NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Spatial Tracking & Eligibility Layer
+CREATE TABLE donor_profiles (
+    donor_id SERIAL PRIMARY KEY,
+    user_id INT UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
+    current_location GEOMETRY(Point, 4326) NOT NULL,
+    location_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_donation_date DATE DEFAULT NULL,
+    last_donation_type component_enum DEFAULT NULL,
+    is_available BOOLEAN DEFAULT TRUE
+);
+
+-- 3. Ephemeral Request Queue (Active Records)
+CREATE TABLE blood_requests (
+    request_id SERIAL PRIMARY KEY,
+    requester_id INT REFERENCES users(user_id) ON DELETE SET NULL,
+    patient_name VARCHAR(100) NOT NULL,
+    hospital_name VARCHAR(150) NOT NULL,
+    hospital_location GEOMETRY(Point, 4326) NOT NULL,
+    blood_group blood_group_enum NOT NULL,
+    required_component component_enum DEFAULT 'WHOLE_BLOOD',
+    units_required INT DEFAULT 1,
+    units_fulfilled INT DEFAULT 0,
+    otp_code VARCHAR(4) NOT NULL,
+    status ticket_status_enum DEFAULT 'PENDING',
+    verification_slip_url TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Broadcast/Match Ledger
+CREATE TABLE request_pings (
+    ping_id SERIAL PRIMARY KEY,
+    request_id INT REFERENCES blood_requests(request_id) ON DELETE CASCADE,
+    donor_id INT REFERENCES donor_profiles(donor_id) ON DELETE CASCADE,
+    status ping_status_enum DEFAULT 'NOTIFIED',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(request_id, donor_id)
+);
+
+-- Production Performance Optimization (GiST Indexes)
+CREATE INDEX idx_donor_spatial_loc ON donor_profiles USING gist(current_location);
+CREATE INDEX idx_hospital_spatial_loc ON blood_requests USING gist(hospital_location);
+CREATE INDEX idx_pings_lookup ON request_pings(donor_id, status);
+
+```
+
+---
+
+## 4. System Action & API Mapping
+
+The Express.js application gateway architecture exposes the following core endpoints, secured via input parsing schemas and rate-limiting rules:
+
+| Action | HTTP Method | Endpoint | Core Backend Operations |
+| --- | --- | --- | --- |
+| **Donor Registration** | `POST` | `/api/donors/register` | Validates personal metadata via `Zod`, generates spatial point coordinates, commits records to `users` and `donor_profiles`. |
+| **Create Emergency Ticket** | `POST` | `/api/requests/create` | Applies low-threshold rate-limiting, handles doctor slip URL, updates `blood_requests` table, executes the PostGIS broadcast query, and populates `request_pings`. |
+| **Fetch Live Alerts** | `GET` | `/api/donors/:donor_id/alerts` | Queries the broadcast ledger table for active `NOTIFIED` state matching the specific authenticated user. |
+| **Handshake Verification** | `POST` | `/api/matches/:match_id/verify` | Executes a PostgreSQL transaction using row-level locking (`FOR UPDATE`) to match the provided OTP, increments `units_fulfilled`, and resets the donor's cooldown window safely. |
+
+---
+
+## 5. Core Algorithmic Match Query
+
+This PostGIS query is the cornerstone talking point for technical SDE interviews. It safely resolves **spatial bounding filters ($O(\log N)$ via GiST index lookup)**, **medical blood type compatibility array maps**, and **component-specific logical cooling windows** simultaneously:
+
+```sql
+SELECT donor_id, 
+       ST_Distance(current_location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) AS distance_meters
+FROM donor_profiles
+WHERE 
+    -- 1. Medical Compatibility Isolation
+    blood_group IN ('B+', 'B-', 'O+', 'O-') 
+    
+    -- 2. Availability & Active Check-In Validation
+    AND is_available = TRUE 
+    AND location_updated_at > CURRENT_DATE - INTERVAL '30 days'
+    
+    -- 3. Dynamic Cooldown Window Check (E.g., Whole Blood 90-Day Deferral)
+    AND (last_donation_date IS NULL OR last_donation_date < CURRENT_DATE - INTERVAL '90 days')
+    
+    -- 4. Fast Spatial Index Evaluation (10 Kilometer Radius Boundary Box)
+    AND ST_DWithin(
+        current_location, 
+        ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, 
+        10000
+    )
+ORDER BY distance_meters ASC;
+
+```
+
+---
+
+## Next Action Item

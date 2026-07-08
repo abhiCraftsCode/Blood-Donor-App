@@ -1,0 +1,116 @@
+Let’s step back and look at the big picture. Since this is an emergency blood and plasma matching application, the user experience needs to be **blazing fast, dead simple, and entirely focused on location and clarity.** A person looking for blood is in a high-stress situation; a donor needs a friction-free way to say "I'm on my way."
+
+Let’s break down exactly what this frontend will **have** (architecture), what it will **do** (functionality), and what it will **look like** (UI/UX design).
+
+---
+
+## 1. What the Frontend Will HAVE (The App Architecture)
+
+The frontend will be built as a modern Single Page Application (SPA). To keep the experience seamless, users will fall into two roles (Requesters and Donors), but both roles will live inside a single, unified account dashboard.
+
+Here are the primary architectural layers:
+
+* **Authentication & Session Guard (`AuthContext`):** A global state manager that remembers who is logged in. It stores the user's core details (ID, name, blood group) so the app knows whether to show them donor options or requester logs.
+* **The 4 Core Screen Modules (Pages):**
+1. **Auth Portal:** A clean, split layout for Login and Registration.
+2. **Emergency Live Feed:** The homepage for an active donor, displaying localized cards sorted by distance using your PostGIS backend metrics.
+3. **Requester Dashboard:** A control panel where patients can open a new emergency request, upload verification slips, view their history, and track real-time fulfillment progress.
+4. **Donor Profile Control:** A settings pane dedicated to managing availability toggles and seeing past donation milestones.
+
+
+
+---
+
+## 2. What the Frontend Will DO (The User Workflows)
+
+The application will translate your 13 backend endpoints into fluid, automated user actions.
+
+### A. The Automatic Login Handshake
+
+When a user opens the app and hits "Login":
+
+* The frontend verifies their credentials via `/api/auth/login`.
+* **The Magic Step:** The moment login succeeds, the frontend instantly uses the browser's native Geolocation API (`navigator.geolocation.getCurrentPosition`) to grab their smartphone's precise GPS coordinates.
+* It immediately fires those coordinates background-style to `/api/donors/location-sync`, ensuring the PostGIS spatial index map is updated before the user even sees the dashboard.
+
+### B. The Emergency Request Lifecycle
+
+When a user needs blood:
+
+* They fill out a form (Patient Name, Hospital Name, Blood Group, Units Needed).
+* The app captures the hospital location (either via a simple map click or automatic current location pinning).
+* Upon submission, the system generates a downloadable **QR Code** containing the backend's `secure_token`. The requester can show this QR code directly to the donor at the hospital.
+
+### C. The Fulfillment Scan
+
+When a donor arrives at the hospital bed:
+
+* The medical staff or requester presents the QR code on their screen.
+* The donor opens the app's built-in camera scanner, reads the token, and fires a `POST` to `/api/requests/verify`.
+* The screen instantly flashes with success confetti as `units_fulfilled` increments in real time.
+
+---
+
+## 3. What the Frontend Will LOOK Like (The Visual Design)
+
+Because this is an emergency app, the interface will feature a **clean, modern, utility-focused design** (using Tailwind CSS for layout implementation). We will avoid heavy text blocks, opting instead for high-contrast elements that prioritize clarity at a glance.
+
+### The Color Palette
+
+* **Primary Accent:** Crimson/Blood Red (`#DC2626` / Tailwind `red-600`) — Used intentionally for emergency status elements, call-to-action buttons, and critical alerts.
+* **Backgrounds:** Clean White and Slate Gray (`#F8FAFC`) — Keeps the focus strictly on data visibility.
+* **Status Indicators:** Emerald Green for `FULFILLED`, Amber Yellow for `PENDING`, and Muted Gray for `CANCELLED`.
+
+### Structural Wireframes (Mental Models)
+
+#### The Emergency Feed View (For Donors)
+
+A clean layout prioritizing immediate action:
+
+```text
++-------------------------------------------------------+
+|  [Logo] RedLine          Available Status: [ TOGGLE ] |
++-------------------------------------------------------+
+| LIVE EMERGENCIES NEARBY (Patna, BR)                   |
+|                                                       |
+|  +-------------------------------------------------+  |
+|  | O+ WHOLE BLOOD REQUIRED                         |  |
+|  | PMCH Hospital, Ashok Rajpath                    |  |
+|  | 📍 1.2 km away                                  |  |
+|  | Progress: [▓▓▓░░░░░░░] 2/5 Units Fulfilled      |  |
+|  | [ VIEW EMERGENCY DETAILS ]                      |  |
+|  +-------------------------------------------------+  |
+|                                                       |
+|  +-------------------------------------------------+  |
+|  | B+ PLASMA REQUIRED                              |  |
+|  | AIIMS Hospital, Phulwari Sharif                 |  |
+|  | 📍 7.8 km away                                  |  |
+|  | Progress: [░░░░░░░░░░] 0/2 Units Fulfilled      |  |
+|  | [ VIEW EMERGENCY DETAILS ]                      |  |
+|  +-------------------------------------------------+  |
++-------------------------------------------------------+
+
+```
+
+#### The Requester Command Center
+
+A clean two-column display keeping crucial actions upfront:
+
+```text
++-------------------------------------------------------+
+|  [Logo] RedLine                      Welcome, Abhishek|
++-------------------------------------------------------+
+|  [ + RAISE NEW BLOOD EMERGENCY ]                      |
+|                                                       |
+|  YOUR ACTIVE REQUESTS                                 |
+|  +-------------------------------------------------+  |
+|  | Patient: Ramesh Kumar  | Status: PENDING        |  |
+|  | Needed: 3 Units A-     | Token: [f7a2...9b]     |  |
+|  |                                                 |  |
+|  |  +-----------------+     Fulfillment Tracker:   |  |
+|  |  |                 |     [██████░░░░] 2/3 Units |  |
+|  |  |  [ LIVE QR ]    |                            |  |
+|  |  |  Show to Donor  |     [ CANCEL REQUEST ]     |  |
+|  |  +-----------------+                            |  |
+|  +-------------------------------------------------+  |
++-------------------------------------------------------+

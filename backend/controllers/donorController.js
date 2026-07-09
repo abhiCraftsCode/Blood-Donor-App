@@ -116,3 +116,31 @@ export const findNearbyDonors = async (req, res) => {
       .json({ error: "Internal server error processing spatial query." });
   }
 };
+
+/**
+ * @route   GET /api/donor/me/:userId
+ * @desc    Get logged-in user profile details (Used for auto-login)
+ * @access  Private (Will require verification middleware)
+ */
+export const getUserProfile = async (req, res) => {
+  console.log("Get User Profile Controller Invoked");
+  // Once the middleware is complete, it will pass the user_id on the req object
+  const { userId } = req.params;
+  if (!userId) {
+    return res.status(400).json({ error: "User ID is required." });
+  }
+
+  try {
+    const result = await db.query(
+      "SELECT * FROM donor_profiles WHERE user_id = $1",
+      [userId],
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Donor profile not found." });
+    }
+    return res.status(200).json(result.rows[0]);
+  } catch (error) {
+    console.error("Get Current User Error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};

@@ -1,77 +1,44 @@
-//base line app ready test it and make amends.
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
-import AuthPortal from "./pages/AuthPortal";
-import ProtectedRoute from "./components/ProtectedRoute";
+import AppShell from "./components/layout/AppShell";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 import EmergencyFeed from "./pages/EmergencyFeed";
-import DonorProfile from "./pages/DonorProfile";
 import RequesterDashboard from "./pages/RequesterDashboard";
-import FulfillmentScanner from "./pages/FulfillmentScanner"; // Import the fresh verification engine
-import GlobalNav from "./components/GlobalNav";
+import NewEmergencyRequest from "./pages/NewEmergencyRequest";
+import DonorProfile from "./pages/DonorProfile";
+import EmergencyDetail from "./pages/EmergencyDetail";
+
+function RequireAuth({ children }) {
+  const { status } = useAuth();
+  if (status === "checking") {
+    return <div className="min-h-screen flex items-center justify-center text-sm text-ink-500">Loading RedLine…</div>;
+  }
+  if (status === "guest") return <Navigate to="/login" replace />;
+  return children;
+}
 
 export default function App() {
-  const { user } = useAuth();
-
   return (
-    <Router>
-      <GlobalNav />
-      <div className="sm:pt-14 pb-20 sm:pb-0">
-        <Routes>
-          <Route
-            path="/auth"
-            element={
-              user ? <Navigate to="/dashboard" replace /> : <AuthPortal />
-            }
-          />
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <EmergencyFeed />
-              </ProtectedRoute>
-            }
-          />
+      <Route
+        element={
+          <RequireAuth>
+            <AppShell />
+          </RequireAuth>
+        }
+      >
+        <Route path="/feed" element={<EmergencyFeed />} />
+        <Route path="/dashboard" element={<RequesterDashboard />} />
+        <Route path="/dashboard/new" element={<NewEmergencyRequest />} />
+        <Route path="/profile" element={<DonorProfile />} />
+        <Route path="/emergency/:id" element={<EmergencyDetail />} />
+      </Route>
 
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <DonorProfile />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/requester"
-            element={
-              <ProtectedRoute>
-                <RequesterDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* 🔐 PRIVATE DONOR SCAN ENGINE ENTRY */}
-          <Route
-            path="/verify-scan"
-            element={
-              <ProtectedRoute>
-                <FulfillmentScanner />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="*"
-            element={<Navigate to={user ? "/dashboard" : "/auth"} replace />}
-          />
-        </Routes>
-      </div>
-    </Router>
+      <Route path="*" element={<Navigate to="/feed" replace />} />
+    </Routes>
   );
 }

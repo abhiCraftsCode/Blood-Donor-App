@@ -1,158 +1,143 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { Droplet, Award, Calendar } from "lucide-react";
+import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-import { donorService } from "../api/donorService";
+import { Card } from "../components/ui/Card";
+import { useToast } from "../components/ui/Toast";
+
+function Stat({ label, value, icon: Icon }) {
+  return (
+    <Card className="p-5 flex items-center gap-3">
+      <div className="w-9 h-9 rounded-full bg-pulse-100 text-pulse flex items-center justify-center shrink-0">
+        <Icon className="w-4 h-4" />
+      </div>
+      <div>
+        <p className="font-mono text-xl font-semibold text-ink tabular">
+          {value}
+        </p>
+        <p className="text-xs text-ink-500">{label}</p>
+      </div>
+    </Card>
+  );
+}
 
 export default function DonorProfile() {
-  const { user, logout, syncLocation } = useAuth();
-  const [isAvailable, setIsAvailable] = useState(user?.is_available || false);
-  const [syncStatus, setSyncStatus] = useState("");
-  const [syncing, setSyncing] = useState(false);
+  const { user, setUser } = useAuth();
+  const { push } = useToast();
+  const [profile, setProfile] = useState(null);
+  const [history, setHistory] = useState(null);
+  const [available, setAvailable] = useState(true);
 
-  // 1. Atomic Status Flip Pipeline
-  const handleAvailabilityToggle = async () => {
+  useEffect(() => {
+    api
+      .getDonorProfile(user.user_id)
+      .then((data) => {
+        setProfile(data);
+        setAvailable(data.is_available);
+      })
+      .catch(() => setProfile(null));
+  }, []);
+
+  const toggleAvailability = async () => {
+    const next = !available;
+    setAvailable(next);
     try {
-      await donorService.toggleAvailability(user.user_id);
-      setIsAvailable((prev) => !prev);
-    } catch (err) {
-      console.error("Failed to shift profile availability metrics:", err);
-    }
-  };
-
-  // 2. Manual Geolocation Re-Sync Handler
-  const handleManualSync = async () => {
-    setSyncing(true);
-    setSyncStatus("Querying hardware telemetry...");
-
-    try {
-      await syncLocation();
-      setSyncStatus("PostGIS spatial node updated successfully!");
-      setTimeout(() => setSyncStatus(""), 4000);
-    } catch (err) {
-      setSyncStatus("Telemetry sync failed. Check device GPS permissions.");
-    } finally {
-      setSyncing(false);
+      await api.toggleAvailability(user.user_id);
+      push(
+        next
+          ? "You're now visible to nearby requesters."
+          : "You're hidden from the live feed.",
+        "success",
+      );
+    } catch {
+      setAvailable(!next);
+      push("Couldn't update this. Please try again.", "error");
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      {/* Navigation Header */}
-      <nav className="border-b border-slate-200 bg-white px-6 py-4">
-        <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <h1 className="text-xl font-black tracking-tight text-slate-950">
-            Red<span className="text-red-600">Line</span> Profile
-          </h1>
+    <div className="max-w-2xl mx-auto px-5 py-8">
+      <h1 className="font-display text-2xl text-ink mb-1.5">Donor profile</h1>
+      <p className="text-sm text-ink-500 mb-7">
+        Manage your availability and see your donation history.
+      </p>
+
+      <Card className="p-6 flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-pulse-100 text-pulse flex items-center justify-center font-mono font-semibold">
+            {user?.blood_group}
+          </div>
+          <div>
+            <p className="font-medium text-ink">{user?.name}</p>
+            <p className="text-sm text-ink-500">{user?.city}</p>
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-ink-500 cursor-pointer">
+          <span className="hidden sm:inline">
+            {available ? "Available" : "Unavailable"}
+          </span>
           <button
-            onClick={logout}
-            className="rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-200"
+            role="switch"
+            aria-checked={available}
+            onClick={toggleAvailability}
+            className={`w-10 h-6 rounded-full transition-colors relative ${available ? "bg-vital" : "bg-ink/15"}`}
           >
-            Sign Out
+            <span
+              className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${available ? "translate-x-4" : "translate-x-0.5"}`}
+            />
           </button>
-        </div>
-      </nav>
+        </label>
+      </Card>
 
-      {/* Main Container */}
-      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        {/* Profile Card Summary Header */}
-        <div className="relative overflow-hidden rounded-3xl bg-slate-950 p-6 text-white shadow-xl mb-6">
-          <div className="relative z-10 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                Verified Life-Saver
-              </p>
-              <h2 className="text-2xl font-black tracking-tight mt-1">
-                {user?.name}
-              </h2>
-              <p className="text-sm text-slate-400 mt-0.5">{user?.email}</p>
-              <p className="text-sm text-slate-400">
-                {user?.phone || "No phone link registered"}
-              </p>
-            </div>
-            {/* Massive high-contrast Blood Group indicator */}
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-red-600 text-3xl font-black tracking-tighter text-white shadow-md shadow-red-900/30">
-              {user?.blood_group || "O+"}
-            </div>
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <Stat
+          label="Total donations"
+          value={history?.totalDonations ?? "0"}
+          icon={Droplet}
+        />
+        <Stat
+          label="Lives impacted"
+          value={history?.livesImpacted ?? "—"}
+          icon={Award}
+        />
+        <Stat
+          label="Last donation"
+          value={profile?.last_donation_date ?? "—"}
+          icon={Calendar}
+        />
+      </div>
+
+      <Card className="p-6">
+        <h3 className="font-medium text-ink mb-4">Donation history</h3>
+        {profile?.history?.length ? (
+          <div className="space-y-3">
+            {profile.history.map((h, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: i * 0.04 }}
+                className="flex items-center justify-between py-2.5 border-b border-ink/[0.04] last:border-0"
+              >
+                <div>
+                  <p className="text-sm font-medium text-ink">
+                    {h.hospitalName}
+                  </p>
+                  <p className="text-xs text-ink-500">{h.date}</p>
+                </div>
+                <span className="font-mono text-xs text-vital bg-vital-100 rounded-full px-2.5 py-1">
+                  {h.bloodGroup}
+                </span>
+              </motion.div>
+            ))}
           </div>
-          {/* Subtle graphic accent background ring */}
-          <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-slate-900/40 border border-slate-800 pointer-events-none" />
-        </div>
-
-        {/* Operational Availability Management Panel */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm mb-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <h3 className="font-bold text-slate-950 text-base">
-                Broadcast Network Stream
-              </h3>
-              <p className="text-xs text-slate-500 max-w-md">
-                When active, your profile telemetry metrics are parsed inside
-                surrounding hospital lookups. Turn off to take a temporary break
-                from notifications.
-              </p>
-            </div>
-            <button
-              onClick={handleAvailabilityToggle}
-              className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                isAvailable ? "bg-red-600" : "bg-slate-200"
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  isAvailable ? "translate-x-7" : "translate-x-0"
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-
-        {/* Spatial Device Configuration Layer */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm mb-6">
-          <h3 className="font-bold text-slate-950 text-base mb-1">
-            Hardware Coordinate Synchronization
-          </h3>
-          <p className="text-xs text-slate-500 mb-4">
-            The application automatically triggers coordinate sweeps upon
-            authorization events. Use this action to manually push an updated
-            spatial anchor down into the PostGIS map index.
+        ) : (
+          <p className="text-sm text-ink-500">
+            No donations recorded yet — your first one will show up here.
           </p>
-
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <button
-              onClick={handleManualSync}
-              disabled={syncing}
-              className="rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-slate-900 disabled:opacity-50 text-center"
-            >
-              {syncing ? "Querying Sensors..." : "Force Spatial GPS Update"}
-            </button>
-            {syncStatus && (
-              <span className="text-xs font-bold text-red-600 animate-fade-in">
-                ⚙️ {syncStatus}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Analytics & Milestone Tracker Rows */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm text-center sm:text-left">
-            <span className="text-2xl">📦</span>
-            <h4 className="text-2xl font-black text-slate-950 mt-2">0 Units</h4>
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mt-0.5">
-              Total Volumes Fulfilled
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm text-center sm:text-left">
-            <span className="text-2xl">🛡️</span>
-            <h4 className="text-2xl font-black text-emerald-600 mt-2">
-              Active
-            </h4>
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mt-0.5">
-              Account Standing Matrix
-            </p>
-          </div>
-        </div>
-      </main>
+        )}
+      </Card>
     </div>
   );
 }
